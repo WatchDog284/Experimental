@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketo Smart List Syntax Helper</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .message-box {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+            z-index: 100;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1s ease infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .filter-row-number {
+            display: none;
+            font-weight: 600;
+            color: #6b7280;
+            margin-right: 0.75rem;
+            align-self: flex-end;
+            margin-bottom: 0.6rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-6 md:p-10 rounded-xl shadow-xl w-full max-w-3xl">
+        <h1 class="text-3xl font-bold text-gray-800 text-center mb-4">Marketo Smart List Syntax Helper</h1>
+        <p class="text-gray-600 text-center mb-8">
+            Build your Smart List by adding triggers and filters, or generate the syntax from a text description.
+        </p>
+        
+        <!-- New Gemini Feature: Audience Suggester -->
+        <div class="mb-10 border-b pb-8">
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">✨ Get Audience Ideas</h3>
+            <p class="text-gray-600 mb-4">Describe your marketing goal, and the AI will suggest targeting criteria.</p>
+            <textarea id="goal-input" rows="2" placeholder="e.g., Promote a new webinar to engaged leads..." class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 transition duration-150 ease-in-out"></textarea>
+            <button id="suggest-audience" class="w-full mt-4 py-2 px-4 rounded-md shadow-sm text-lg font-medium text-white bg-purple-600 hover:bg-purple-700 transition duration-150 ease-in-out">
+                Suggest Ideas
+            </button>
+            <div id="suggestions-container" class="mt-4 space-y-2"></div>
+        </div>
+
+
+        <!-- Builder Sections -->
+        <div class="space-y-8">
+            <!-- Triggers Section -->
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-800 border-b pb-2 mb-4">Triggers <span class="text-base font-normal text-gray-500">(Real-time Actions)</span></h2>
+                <div id="trigger-container" class="space-y-4">
+                    <!-- Trigger rows will be added by JS -->
+                </div>
+                <button id="add-trigger" class="w-full mt-4 py-2 px-4 rounded-md shadow-sm text-lg font-medium text-blue-600 border border-blue-600 hover:bg-blue-50 transition duration-150 ease-in-out">
+                    + Add Trigger
+                </button>
+            </div>
+
+            <!-- Filters Section -->
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-800 border-b pb-2 mb-4">Filters <span class="text-base font-normal text-gray-500">(Existing Attributes)</span></h2>
+                <div class="mb-4">
+                    <label for="filter-logic" class="block text-sm font-medium text-gray-700 mb-1">Filter Logic</label>
+                    <select id="filter-logic" class="block w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="AND" selected>All Filters (AND)</option>
+                        <option value="OR">Any Filter (OR)</option>
+                        <option value="ADVANCED">Advanced Logic</option>
+                    </select>
+                </div>
+                <div id="advanced-logic-container" class="hidden mb-4">
+                     <label for="advanced-logic-input" class="block text-sm font-medium text-gray-700 mb-1">Advanced Logic (e.g., 1 AND (2 OR 3))</label>
+                    <input type="text" id="advanced-logic-input" placeholder="e.g., 1 AND (2 OR 3)" class="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div id="filter-container" class="space-y-4">
+                    <!-- Filter rows will be added by JS -->
+                </div>
+                <button id="add-filter" class="w-full mt-4 py-2 px-4 rounded-md shadow-sm text-lg font-medium text-blue-600 border border-blue-600 hover:bg-blue-50 transition duration-150 ease-in-out">
+                    + Add Filter
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-10 border-t pt-8">
+            <h3 class="text-xl font-semibold text-gray-800 mb-2">Or, Generate Syntax from Text ✨</h3>
+            <textarea id="natural-lang-input" rows="3" placeholder="e.g., Find leads in California who filled out the 'Contact Us' form." class="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 transition duration-150 ease-in-out"></textarea>
+            <button id="generate-from-text" class="w-full mt-4 py-2 px-4 rounded-md shadow-sm text-lg font-medium text-white bg-purple-600 hover:bg-purple-700 transition duration-150 ease-in-out">
+                Generate Syntax ✨
+            </button>
+        </div>
+
+        <div class="mt-8">
+            <div class="flex justify-between items-center mb-2">
+                 <h3 class="text-xl font-semibold text-gray-800">Generated Syntax</h3>
+                 <button id="explain-syntax" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 transition duration-150 ease-in-out">
+                    Explain Syntax ✨
+                </button>
+            </div>
+            <div class="relative">
+                <textarea id="syntax-output" readonly rows="8" class="block w-full px-4 py-4 border border-gray-300 bg-gray-50 rounded-md shadow-sm text-sm text-gray-800 resize-none font-mono"></textarea>
+                <button id="copy-syntax" class="absolute top-2 right-2 px-3 py-1 bg-gray-200 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-300 transition duration-150 ease-in-out">
+                    Copy
+                </button>
+            </div>
+            <div id="syntax-explanation-container" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md text-gray-700 hidden"></div>
+        </div>
+    </div>
+
+    <!-- Message Box for Feedback and Loading Spinner -->
+    <div id="messageBox" class="message-box">
+        <h3 id="messageTitle" class="text-2xl font-bold text-gray-800 mb-2"></h3>
+        <p id="messageText" class="text-gray-600 mb-6"></p>
+        <div id="loading-spinner" class="hidden spinner mx-auto mb-4"></div>
+        <button id="closeMessage" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-150 ease-in-out">
+            Close
+        </button>
+    </div>
+    <div id="overlay" class="overlay"></div>
+
+    <script>
+        const triggerContainer = document.getElementById('trigger-container');
+        const filterContainer = document.getElementById('filter-container');
+        const addTriggerButton = document.getElementById('add-trigger');
+        const addFilterButton = document.getElementById('add-filter');
+        const syntaxOutput = document.getElementById('syntax-output');
+        const copySyntaxButton = document.getElementById('copy-syntax');
+        const naturalLangInput = document.getElementById('natural-lang-input');
+        const generateFromTextButton = document.getElementById('generate-from-text');
+        const messageBox = document.getElementById('messageBox');
+        const messageTitle = document.getElementById('messageTitle');
+        const messageText = document.getElementById('messageText');
+        const closeMessageButton = document.getElementById('closeMessage');
+        const overlay = document.getElementById('overlay');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const filterLogicSelect = document.getElementById('filter-logic');
+        const advancedLogicContainer = document.getElementById('advanced-logic-container');
+        const advancedLogicInput = document.getElementById('advanced-logic-input');
+        const goalInput = document.getElementById('goal-input');
+        const suggestAudienceButton = document.getElementById('suggest-audience');
+        const suggestionsContainer = document.getElementById('suggestions-container');
+        const explainSyntaxButton = document.getElementById('explain-syntax');
+        const syntaxExplanationContainer = document.getElementById('syntax-explanation-container');
+
+        const showMessage = (title, text, showSpinner = false) => {
+            messageTitle.textContent = title;
+            messageText.innerHTML = text; // Use innerHTML to render line breaks
+            loadingSpinner.classList.toggle('hidden', !showSpinner);
+            messageBox.style.display = 'block';
+            overlay.style.display = 'block';
+            closeMessageButton.style.display = showSpinner ? 'none' : 'block';
+        };
+
+        const closeMessage = () => {
+            messageBox.style.display = 'none';
+            overlay.style.display = 'none';
+        };
+
+        closeMessageButton.addEventListener('click', closeMessage);
+
+        const criteriaTemplates = {
+            'fills-out-form-trigger': { type: 'trigger', label: 'Fills Out Form', placeholder: 'Enter Form Name', syntax: (val) => `Fills Out Form IS "${val}"` },
+            'clicks-link-trigger': { type: 'trigger', label: 'Clicks Link in Email', placeholder: 'Enter Email Name', syntax: (val) => `Clicks Link in Email IS "${val}"` },
+            'opens-email-trigger': { type: 'trigger', label: 'Opens Email', placeholder: 'Enter Email Name', syntax: (val) => `Opens Email IS "${val}"` },
+            'visits-web-page-trigger': { type: 'trigger', label: 'Visits Web Page', placeholder: 'Enter URL (e.g., /pricing)', syntax: (val) => `Visits Web Page IS "${val}"` },
+            'filled-out-form-filter': { type: 'filter', label: 'Filled Out Form', placeholder: 'Enter Form Name', syntax: (val) => `Filled Out Form IS "${val}"` },
+            'clicked-link-filter': { type: 'filter', label: 'Clicked Link in Email', placeholder: 'Enter Email Name', syntax: (val) => `Clicked Link in Email IS "${val}"` },
+            'opened-email-filter': { type: 'filter', label: 'Opened Email', placeholder: 'Enter Email Name', syntax: (val) => `Opened Email IS "${val}"` },
+            'visited-web-page-filter': { type: 'filter', label: 'Visited Web Page', placeholder: 'Enter URL (e.g., /pricing)', syntax: (val) => `Visited Web Page IS "${val}"` },
+            'member-of-campaign': { type: 'filter', label: 'Member of Campaign', placeholder: 'Enter Campaign Name', syntax: (val) => `Member of Campaign IS "${val}"` },
+            'city': { type: 'filter', label: 'City', placeholder: 'Enter City Name', syntax: (val) => `City IS "${val}"` },
+            'country': { type: 'filter', label: 'Country', placeholder: 'Enter Country Name', syntax: (val) => `Country IS "${val}"` },
+        };
+
+        const updateFilterRowNumbers = () => {
+            const filterRows = filterContainer.querySelectorAll('.criteria-row');
+            const isAdvanced = filterLogicSelect.value === 'ADVANCED';
+            filterRows.forEach((row, index) => {
+                let numberSpan = row.querySelector('.filter-row-number');
+                if (isAdvanced) {
+                    if (!numberSpan) {
+                        numberSpan = document.createElement('span');
+                        numberSpan.className = 'filter-row-number';
+                        row.insertBefore(numberSpan, row.firstChild);
+                    }
+                    numberSpan.textContent = `${index + 1}.`;
+                    numberSpan.style.display = 'block';
+                } else if (numberSpan) {
+                    numberSpan.style.display = 'none';
+                }
+            });
+        };
+        
+        const generateSyntax = () => {
+            const triggerRows = triggerContainer.querySelectorAll('.criteria-row');
+            const filterRows = filterContainer.querySelectorAll('.criteria-row');
+            
+            const triggerSyntaxArray = [];
+            triggerRows.forEach(row => {
+                const type = row.querySelector('.criteria-select').value;
+                const value = row.querySelector('.criteria-input').value.trim();
+                if (type && value) triggerSyntaxArray.push(criteriaTemplates[type].syntax(value));
+            });
+
+            const filterSyntaxArray = [];
+            filterRows.forEach(row => {
+                const type = row.querySelector('.criteria-select').value;
+                const value = row.querySelector('.criteria-input').value.trim();
+                if (type && value) filterSyntaxArray.push(criteriaTemplates[type].syntax(value));
+            });
+
+            let finalSyntax = '';
+            const triggerSyntax = triggerSyntaxArray.join('\nOR\n');
+            
+            let filterSyntax = '';
+            const filterLogic = filterLogicSelect.value;
+            if (filterSyntaxArray.length > 0) {
+                if (filterLogic === 'ADVANCED') {
+                    const numberedFilters = filterSyntaxArray.map((syntax, index) => `${index + 1}. ${syntax}`).join('\n');
+                    const advancedRule = advancedLogicInput.value.trim();
+                    filterSyntax = `${numberedFilters}\nAdvanced Logic: ${advancedRule}`;
+                } else {
+                    filterSyntax = filterSyntaxArray.join(`\n${filterLogic}\n`);
+                }
+            }
+
+            if (triggerSyntax && filterSyntax) {
+                finalSyntax = `${triggerSyntax}\n\nAND\n\n${filterSyntax}`;
+            } else if (triggerSyntax) {
+                finalSyntax = triggerSyntax;
+            } else if (filterSyntax) {
+                finalSyntax = filterSyntax;
+            }
+            
+            syntaxOutput.value = finalSyntax;
+        };
+
+        const addCriteriaRow = (container, type) => {
+            const newRow = document.createElement('div');
+            newRow.classList.add('flex', 'flex-col', 'md:flex-row', 'md:items-end', 'gap-4', 'criteria-row');
+            
+            const options = Object.entries(criteriaTemplates)
+                .filter(([key, value]) => value.type === type)
+                .map(([key, value]) => `<option value="${key}">${value.label}</option>`)
+                .join('');
+
+            newRow.innerHTML = `
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Criterion</label>
+                    <select class="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out criteria-select">
+                        <option value="" disabled selected>Select a ${type}</option>
+                        ${options}
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Parameter</label>
+                    <input type="text" placeholder="Enter value..." class="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 transition duration-150 ease-in-out criteria-input">
+                </div>
+                <button class="flex-shrink-0 bg-red-500 text-white h-11 px-4 py-2 rounded-md shadow-sm hover:bg-red-600 transition-colors duration-150 ease-in-out remove-criteria-btn">
+                    Remove
+                </button>
+            `;
+            container.appendChild(newRow);
+
+            const selectElement = newRow.querySelector('.criteria-select');
+            const inputElement = newRow.querySelector('.criteria-input');
+
+            selectElement.addEventListener('change', (e) => {
+                const selectedValue = e.target.value;
+                if (criteriaTemplates[selectedValue]) {
+                    inputElement.placeholder = criteriaTemplates[selectedValue].placeholder;
+                }
+                generateSyntax();
+            });
+
+            inputElement.addEventListener('input', generateSyntax);
+            newRow.querySelector('.remove-criteria-btn').addEventListener('click', () => {
+                newRow.remove();
+                if (type === 'filter') updateFilterRowNumbers();
+                generateSyntax();
+            });
+
+            if (type === 'filter') updateFilterRowNumbers();
+        };
+
+        addTriggerButton.addEventListener('click', () => addCriteriaRow(triggerContainer, 'trigger'));
+        addFilterButton.addEventListener('click', () => addCriteriaRow(filterContainer, 'filter'));
+        
+        filterLogicSelect.addEventListener('change', () => {
+            advancedLogicContainer.classList.toggle('hidden', filterLogicSelect.value !== 'ADVANCED');
+            updateFilterRowNumbers();
+            generateSyntax();
+        });
+
+        advancedLogicInput.addEventListener('input', generateSyntax);
+
+        copySyntaxButton.addEventListener('click', () => {
+            if (syntaxOutput.value) {
+                navigator.clipboard.writeText(syntaxOutput.value).then(() => {
+                    showMessage('Copied!', 'The smart list syntax has been copied to your clipboard.');
+                }).catch(err => {
+                    console.warn('Clipboard API failed, falling back to execCommand.', err);
+                    try {
+                        syntaxOutput.select();
+                        document.execCommand('copy');
+                        showMessage('Copied!', 'The smart list syntax has been copied to your clipboard.');
+                    } catch (execErr) {
+                        console.error('Fallback copy method failed.', execErr);
+                        showMessage('Error', 'Could not copy the syntax. Please copy it manually.');
+                    }
+                });
+            } else {
+                showMessage('Nothing to copy', 'The syntax output is empty. Please add criteria first.');
+            }
+        });
+        
+        const callGeminiAPI = async (systemPrompt) => {
+            let chatHistory = [{ role: "user", parts: [{ text: systemPrompt }] }];
+            const payload = { contents: chatHistory };
+            const apiKey = "AIzaSyCWmX3_fsC0WtF-y81kKHZkxNp__zqHYEk";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            for (let i = 0; i < 3; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                         const result = await response.json();
+                         if (result.candidates && result.candidates.length > 0) {
+                            return result.candidates[0].content.parts[0].text;
+                         }
+                    }
+                    if (response.status !== 429) break;
+                } catch (error) {
+                    console.error('Fetch attempt failed:', error);
+                }
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+            }
+            throw new Error('API call failed after multiple retries.');
+        };
+
+        generateFromTextButton.addEventListener('click', async () => {
+            const userPrompt = naturalLangInput.value.trim();
+            if (!userPrompt) {
+                showMessage('Input Missing', 'Please enter a description to generate the syntax.');
+                return;
+            }
+
+            showMessage('Generating...', 'Translating your request into Marketo syntax.', true);
+
+            const systemPrompt = `You are a Marketo syntax expert. Your ONLY job is to convert a user request into Marketo Smart List syntax. Follow these rules in order without exception:
+
+**RULE 1: IDENTIFY TRIGGERS VS FILTERS BASED ON VERB TENSE.** This is the most important rule.
+- If an action verb is **PRESENT TENSE** (e.g., "clicks", "fills", "opens", "visits"), you MUST use the corresponding real-time **TRIGGER**.
+- If an action verb is **PAST TENSE** (e.g., "clicked", "filled", "opened", "visited") or the phrase implies a past state ("have filled", "was a member"), you MUST use the corresponding historical **FILTER**.
+- Attributes like City, Country are ALWAYS filters.
+
+**RULE 2: EXTRACT PARAMETERS.** You must extract the specific values for each criterion from the user's text and place them in double quotes after the 'IS' operator. For example, if the user says 'fills out demo form', the syntax must be 'Fills Out Form IS "demo form"'.
+
+**RULE 3: APPLY LOGIC CORRECTLY.**
+- Group all identified Triggers together first. Join multiple triggers with 'OR'.
+- Group all identified Filters together. Join multiple filters with 'AND'.
+- If both Triggers AND Filters exist, the final structure is: [Triggers joined by OR]... then 'AND'... then [Filters joined by AND].
+
+**RULE 4: USE ONLY THE PROVIDED SYNTAX.**
+- Triggers: Fills Out Form, Clicks Link in Email, Opens Email, Visits Web Page.
+- Filters: Filled Out Form, Clicked Link in Email, Opened Email, Visited Web Page, Member of Campaign, City, Country.
+
+**RULE 5: FORMATTING.**
+- All operators ('IS') and logical connectors ('AND', 'OR') MUST be capitalized.
+- Logical connectors ('AND', 'OR') **MUST** be on their own separate line. For example: "Criterion 1\\nOR\\nCriterion 2".
+
+**RESPONSE:**
+- Respond ONLY with the final syntax. No explanations.
+
+User request: "${userPrompt}"`;
+
+            try {
+                const text = await callGeminiAPI(systemPrompt);
+                syntaxOutput.value = text.trim();
+                showMessage('Success!', 'The syntax has been generated.');
+            } catch (error) {
+                console.error('Error generating syntax:', error);
+                showMessage('Error', 'Failed to generate syntax. Please try again or use the manual builder.');
+            }
+        });
+
+        suggestAudienceButton.addEventListener('click', async () => {
+            const goal = goalInput.value.trim();
+            if (!goal) {
+                showMessage('Goal Missing', 'Please describe your marketing goal to get suggestions.');
+                return;
+            }
+            
+            showMessage('Thinking...', 'Generating audience ideas for your goal.', true);
+
+            const systemPrompt = `You are a Marketo marketing strategist. A user wants ideas for a smart list to achieve a specific goal. Based on the user's goal, suggest 2-3 distinct audience targeting ideas in plain English. Format the response as a numbered list. Be concise. User Goal: "${goal}"`;
+
+            try {
+                const text = await callGeminiAPI(systemPrompt);
+                suggestionsContainer.innerHTML = '';
+                text.split(/\d+\.\s/).filter(s => s.trim()).forEach(suggestionText => {
+                    const p = document.createElement('p');
+                    p.className = 'p-3 bg-gray-100 rounded-md cursor-pointer hover:bg-gray-200';
+                    p.textContent = suggestionText.trim();
+                    p.onclick = () => {
+                        naturalLangInput.value = suggestionText.trim();
+                        generateFromTextButton.click();
+                    };
+                    suggestionsContainer.appendChild(p);
+                });
+                closeMessage();
+            } catch (error) {
+                console.error('Error suggesting audience:', error);
+                showMessage('Error', 'Could not generate suggestions. Please try again.');
+            }
+        });
+
+        explainSyntaxButton.addEventListener('click', async () => {
+            const syntax = syntaxOutput.value.trim();
+            if (!syntax) {
+                syntaxExplanationContainer.innerHTML = 'Please generate some syntax first to get an explanation.';
+                syntaxExplanationContainer.classList.remove('hidden');
+                return;
+            }
+
+            syntaxExplanationContainer.innerHTML = '<div class="spinner mx-auto"></div>';
+            syntaxExplanationContainer.classList.remove('hidden');
+            
+            const systemPrompt = `You are a Marketo expert. Explain the following Marketo Smart List syntax in simple, human-readable terms. Describe who the list is targeting and what conditions must be met. Keep it clear and concise. Syntax:\n\n${syntax}`;
+
+            try {
+                const text = await callGeminiAPI(systemPrompt);
+                syntaxExplanationContainer.innerHTML = text.replace(/\n/g, '<br>');
+            } catch (error) {
+                console.error('Error explaining syntax:', error);
+                syntaxExplanationContainer.innerHTML = 'Error: Could not generate an explanation. Please try again.';
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            addCriteriaRow(triggerContainer, 'trigger');
+            addCriteriaRow(filterContainer, 'filter');
+        });
+    </script>
+</body>
+</html>

@@ -47,10 +47,10 @@ def process_sales_data(df, column_map):
             df[col_name] = pd.to_datetime(df[col_name], errors='coerce')
 
     # Calculate time deltas between stages (in days)
-    if column_map.get('SDL Date') != "None" and column_map.get('Clarification Date') != "None":
-        df['Days to Clarification'] = (df[column_map['Clarification Date']] - df[column_map['SDL Date']]).dt.days
-    if column_map.get('Clarification Date') != "None" and column_map.get('SQL Date') != "None":
-        df['Days Clarification to SQL'] = (df[column_map['SQL Date']] - df[column_map['Clarification Date']]).dt.days
+    if column_map.get('SDL Date') != "None" and column_map.get('SDL First Touch Date') != "None":
+        df['Days to First Touch'] = (df[column_map['SDL First Touch Date']] - df[column_map['SDL Date']]).dt.days
+    if column_map.get('SDL First Touch Date') != "None" and column_map.get('SQL Date') != "None":
+        df['Days First Touch to SQL'] = (df[column_map['SQL Date']] - df[column_map['SDL First Touch Date']]).dt.days
 
     return df
 
@@ -87,7 +87,7 @@ with st.sidebar:
 
             column_map['Lead ID'] = st.selectbox("Lead ID Column", cols, index=cols.index(find_default_column(cols, ['lead id', 'leadid'])))
             column_map['SDL Date'] = st.selectbox("Lead Creation Date (SDL)", cols, index=cols.index(find_default_column(cols, ['sdl date', 'creation date'])))
-            column_map['Clarification Date'] = st.selectbox("Clarification Date", cols, index=cols.index(find_default_column(cols, ['clarification date'])))
+            column_map['SDL First Touch Date'] = st.selectbox("SDL First Touch Date", cols, index=cols.index(find_default_column(cols, ['clarification date', 'first touch'])))
             column_map['SQL Date'] = st.selectbox("Sales Qualified Date (SQL)", cols, index=cols.index(find_default_column(cols, ['sql date'])))
             column_map['Disqualified Date'] = st.selectbox("Disqualified Date", cols, index=cols.index(find_default_column(cols, ['disqualified date'])))
             column_map['Disqualification Reason'] = st.selectbox("Disqualification Reason", cols, index=cols.index(find_default_column(cols, ['disqualification reason', 'reason'])))
@@ -133,12 +133,12 @@ if uploaded_file and df is not None and column_map.get('Lead ID') != 'None':
         with col1:
             st.markdown("#### Overall Funnel (All Time)")
             total_leads = df_processed[column_map['Lead ID']].nunique() if column_map['Lead ID'] != 'None' else 0
-            clarified_leads = df_processed[column_map['Clarification Date']].notna().sum() if column_map['Clarification Date'] != 'None' else 0
+            first_touch_leads = df_processed[column_map['SDL First Touch Date']].notna().sum() if column_map['SDL First Touch Date'] != 'None' else 0
             sql_leads = df_processed[column_map['SQL Date']].notna().sum() if column_map['SQL Date'] != 'None' else 0
             
             funnel_stages, funnel_counts = [], []
             if total_leads > 0: funnel_stages.append('Total Leads (SDL)'); funnel_counts.append(total_leads)
-            if clarified_leads > 0: funnel_stages.append('Clarified'); funnel_counts.append(clarified_leads)
+            if first_touch_leads > 0: funnel_stages.append('SDL First Touch'); funnel_counts.append(first_touch_leads)
             if sql_leads > 0: funnel_stages.append('Sales Qualified (SQL)'); funnel_counts.append(sql_leads)
 
             if len(funnel_stages) > 1:
@@ -159,12 +159,12 @@ if uploaded_file and df is not None and column_map.get('Lead ID') != 'None':
                 
                 if not weekly_cohort_df.empty:
                     weekly_total = weekly_cohort_df[column_map['Lead ID']].nunique()
-                    weekly_clarified = weekly_cohort_df[column_map['Clarification Date']].notna().sum() if column_map['Clarification Date'] != 'None' else 0
+                    weekly_first_touch = weekly_cohort_df[column_map['SDL First Touch Date']].notna().sum() if column_map['SDL First Touch Date'] != 'None' else 0
                     weekly_sql = weekly_cohort_df[column_map['SQL Date']].notna().sum() if column_map['SQL Date'] != 'None' else 0
 
                     weekly_stages, weekly_counts = [], []
                     if weekly_total > 0: weekly_stages.append('Total Leads (SDL)'); weekly_counts.append(weekly_total)
-                    if weekly_clarified > 0: weekly_stages.append('Clarified'); weekly_counts.append(weekly_clarified)
+                    if weekly_first_touch > 0: weekly_stages.append('SDL First Touch'); weekly_counts.append(weekly_first_touch)
                     if weekly_sql > 0: weekly_stages.append('Sales Qualified (SQL)'); weekly_counts.append(weekly_sql)
 
                     if len(weekly_stages) > 1:
@@ -207,18 +207,18 @@ if uploaded_file and df is not None and column_map.get('Lead ID') != 'None':
                 weekly_cohort_df = df_processed[df_processed[sdl_col].dt.normalize().between(start_date, end_date)].copy()
                 
                 if not weekly_cohort_df.empty:
-                    clar_col = column_map['Clarification Date']
+                    first_touch_col = column_map['SDL First Touch Date']
                     sql_col = column_map['SQL Date']
                     disq_col = column_map['Disqualified Date']
 
-                    clarified_in_cohort = weekly_cohort_df[weekly_cohort_df[clar_col].dt.normalize().between(start_date, end_date)] if clar_col != 'None' else pd.DataFrame()
+                    first_touch_in_cohort = weekly_cohort_df[weekly_cohort_df[first_touch_col].dt.normalize().between(start_date, end_date)] if first_touch_col != 'None' else pd.DataFrame()
                     sql_in_cohort = weekly_cohort_df[weekly_cohort_df[sql_col].dt.normalize().between(start_date, end_date)] if sql_col != 'None' else pd.DataFrame()
                     disq_in_cohort = weekly_cohort_df[weekly_cohort_df[disq_col].dt.normalize().between(start_date, end_date)] if disq_col != 'None' else pd.DataFrame()
 
                     # Display Cohort KPIs
                     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
                     kpi1.metric("New SDLs", len(weekly_cohort_df))
-                    kpi2.metric("Clarified from Cohort", len(clarified_in_cohort))
+                    kpi2.metric("First Touch from Cohort", len(first_touch_in_cohort))
                     kpi3.metric("SQLs from Cohort", len(sql_in_cohort))
                     kpi4.metric("Disqualified from Cohort", len(disq_in_cohort))
                 else:

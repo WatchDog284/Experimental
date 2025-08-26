@@ -138,155 +138,169 @@
     </div>
 
     <script>
-        const tooltipTitleCallback = (tooltipItems) => {
-            const item = tooltipItems[0];
-            let label = item.chart.data.labels[item.dataIndex];
-            if (Array.isArray(label)) {
-                return label.join(' ');
-            }
-            return label;
-        };
-
-        const wrapLabel = (label, maxLength = 16) => {
-            if (label.length <= maxLength) {
+        window.onload = function() {
+            const tooltipTitleCallback = (tooltipItems) => {
+                const item = tooltipItems[0];
+                let label = item.chart.data.labels[item.dataIndex];
+                if (Array.isArray(label)) {
+                    return label.join(' ');
+                }
                 return label;
-            }
-            const words = label.split(' ');
-            const lines = [];
-            let currentLine = '';
-            for (const word of words) {
-                if ((currentLine + ' ' + word).length > maxLength) {
-                    lines.push(currentLine);
-                    currentLine = word;
-                } else {
-                    currentLine = (currentLine ? currentLine + ' ' : '') + word;
+            };
+
+            const wrapLabel = (label, maxLength = 16) => {
+                if (label.length <= maxLength) {
+                    return label;
                 }
-            }
-            lines.push(currentLine);
-            return lines;
+                const words = label.split(' ');
+                const lines = [];
+                let currentLine = '';
+                for (const word of words) {
+                    if ((currentLine + ' ' + word).length > maxLength) {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    } else {
+                        currentLine = (currentLine ? currentLine + ' ' : '') + word;
+                    }
+                }
+                lines.push(currentLine);
+                return lines;
+            };
+
+            // Overall Funnel Chart
+            const overallFunnelCtx = document.getElementById('overallFunnelChart').getContext('2d');
+            new Chart(overallFunnelCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Total Leads (SDL)', 'SDL First Touch', 'Sales Qualified (SQL)'],
+                    datasets: [{
+                        label: 'Lead Count',
+                        data: [533, 312, 157],
+                        backgroundColor: ['#003f5c', '#7a5195', '#ef5675'],
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { title: tooltipTitleCallback } }
+                    },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Weekly Funnel Chart
+            const weeklyFunnelCtx = document.getElementById('weeklyFunnelChart').getContext('2d');
+            new Chart(weeklyFunnelCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Total Leads (SDL)', 'SDL First Touch', 'Sales Qualified (SQL)'],
+                    datasets: [{
+                        label: 'Lead Count',
+                        data: [45, 21, 8],
+                        backgroundColor: ['#003f5c', '#7a5195', '#ef5675'],
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { title: tooltipTitleCallback } }
+                    },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Disqualification Chart
+            const disqualificationCtx = document.getElementById('disqualificationChart').getContext('2d');
+            
+            const disqualificationData = [
+                { reason: 'No Budget', count: 8 },
+                { reason: 'Lost to Competitor', count: 6 },
+                { reason: 'Timeline Not Aligned', count: 5 },
+                { reason: 'Unresponsive Contact', count: 3 },
+                { reason: 'Wrong Decision Maker', count: 2 }
+            ];
+
+            // Sort data from highest to lowest count
+            disqualificationData.sort((a, b) => b.count - a.count);
+
+            const disqualificationLabels = disqualificationData.map(item => wrapLabel(item.reason));
+            const disqualificationCounts = disqualificationData.map(item => item.count);
+
+            new Chart(disqualificationCtx, {
+                type: 'bar',
+                data: {
+                    labels: disqualificationLabels,
+                    datasets: [{
+                        label: 'Number of Leads',
+                        data: disqualificationCounts,
+                        backgroundColor: ['#ef5675', '#ff764a', '#ffa600', '#7a5195', '#003f5c'],
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { title: tooltipTitleCallback } }
+                    },
+                    scales: {
+                        x: { beginAtZero: true },
+                        y: {
+                            ticks: {
+                                autoSkip: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Weekly Activity Chart
+            const weeklyActivityCtx = document.getElementById('weeklyActivityChart').getContext('2d');
+            new Chart(weeklyActivityCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4 (Current)'],
+                    datasets: [{
+                        label: 'New SDLs',
+                        data: [52, 65, 58, 45],
+                        borderColor: '#003f5c',
+                        backgroundColor: '#003f5c',
+                        tension: 0.1,
+                        fill: false
+                    }, {
+                        label: 'New SQLs',
+                        data: [12, 18, 15, 8],
+                        borderColor: '#ef5675',
+                        backgroundColor: '#ef5675',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: { callbacks: { title: tooltipTitleCallback } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
         };
-
-        // Overall Funnel Chart
-        const overallFunnelCtx = document.getElementById('overallFunnelChart').getContext('2d');
-        new Chart(overallFunnelCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Total Leads (SDL)', 'SDL First Touch', 'Sales Qualified (SQL)'],
-                datasets: [{
-                    label: 'Lead Count',
-                    data: [533, 312, 157],
-                    backgroundColor: ['#003f5c', '#7a5195', '#ef5675'],
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { title: tooltipTitleCallback } }
-                },
-                scales: {
-                    x: { grid: { display: false } },
-                    y: { grid: { display: false } }
-                }
-            }
-        });
-
-        // Weekly Funnel Chart
-        const weeklyFunnelCtx = document.getElementById('weeklyFunnelChart').getContext('2d');
-        new Chart(weeklyFunnelCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Total Leads (SDL)', 'SDL First Touch', 'Sales Qualified (SQL)'],
-                datasets: [{
-                    label: 'Lead Count',
-                    data: [45, 21, 8],
-                    backgroundColor: ['#003f5c', '#7a5195', '#ef5675'],
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { title: tooltipTitleCallback } }
-                },
-                scales: {
-                    x: { grid: { display: false } },
-                    y: { grid: { display: false } }
-                }
-            }
-        });
-
-        // Disqualification Chart
-        const disqualificationCtx = document.getElementById('disqualificationChart').getContext('2d');
-        const disqualificationLabels = [
-            'No Budget',
-            'Lost to Competitor',
-            'Timeline Not Aligned',
-            'Unresponsive Contact',
-            'Wrong Decision Maker'
-        ].map(label => wrapLabel(label));
-
-        new Chart(disqualificationCtx, {
-            type: 'bar',
-            data: {
-                labels: disqualificationLabels,
-                datasets: [{
-                    label: 'Number of Leads',
-                    data: [8, 6, 5, 3, 2],
-                    backgroundColor: ['#ef5675', '#ff764a', '#ffa600', '#7a5195', '#003f5c'],
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { title: tooltipTitleCallback } }
-                },
-                scales: {
-                    x: { beginAtZero: true }
-                }
-            }
-        });
-
-        // Weekly Activity Chart
-        const weeklyActivityCtx = document.getElementById('weeklyActivityChart').getContext('2d');
-        new Chart(weeklyActivityCtx, {
-            type: 'line',
-            data: {
-                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4 (Current)'],
-                datasets: [{
-                    label: 'New SDLs',
-                    data: [52, 65, 58, 45],
-                    borderColor: '#003f5c',
-                    backgroundColor: '#003f5c',
-                    tension: 0.1,
-                    fill: false
-                }, {
-                    label: 'New SQLs',
-                    data: [12, 18, 15, 8],
-                    borderColor: '#ef5675',
-                    backgroundColor: '#ef5675',
-                    tension: 0.1,
-                    fill: false
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    tooltip: { callbacks: { title: tooltipTitleCallback } }
-                },
-                scales: {
-                    y: { beginAtZero: true }
-                }
-            }
-        });
     </script>
 </body>
 </html>
